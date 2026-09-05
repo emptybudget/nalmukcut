@@ -1,0 +1,34 @@
+# 영상 편집 자동화 도구 설정
+# 값만 고치면 됩니다. 코드 수정 불필요.
+
+# --- Step 0: 파일 수집 ---
+extensions: [mp4, mov, mts, avi]   # 이 확장자만 수집 (jpg/heic/raw 등은 자동 제외)
+recursive: false                    # 하위 폴더까지 스캔할지
+min_duration: 3.0                   # 이보다 짧은 클립 제외 (초). Live Photo 방지
+
+# --- Step 2: 전사 ---
+whisper_model: large-v3             # large-v3 | medium | small
+whisper_device: auto                # auto | cpu | cuda
+language: ko
+
+# --- Step 3: 컷 후보 ---
+silence_min: 0.5                    # 이 이상 무음이어야 컷 후보
+keep_silent_over: 10.0              # 이보다 긴 무음은 B-roll로 보고 자동 제외
+padding: 0.1                        # 컷 앞뒤로 남길 여유 (초)
+silence_db: -30                     # ffmpeg silencedetect 임계값 (dB)
+fillers: ["어", "음"]               # 단독 발화된 것만 제거
+
+# --- Step 5: 자막 ---
+max_chars_per_line: 20
+max_lines: 2
+min_sub_duration: 1.0               # 자막 최소 노출 (초). 단, 겹침 금지가 우선
+
+# --- Step 7: 렌더 ---
+crf: 23                             # 낮을수록 고화질/큰 파일 (18=고화질, 23=속도우선)
+preset: medium
+audio_bitrate: 192k
+
+# --- 실행 파일 ---
+# PATH에 없으면 절대경로를 적으세요 (예: C:/ffmpeg/bin/ffmpeg.exe)
+ffmpeg: ffmpeg
+ffprobe: ffprobe
