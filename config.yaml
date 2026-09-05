@@ -6,9 +6,12 @@ extensions: [mp4, mov, mts, avi]   # 이 확장자만 수집 (jpg/heic/raw 등�
 recursive: false                    # 하위 폴더까지 스캔할지
 min_duration: 3.0                   # 이보다 짧은 클립 제외 (초). Live Photo 방지
 
+# --- Step 1.8: 병합 (재인코딩이 필요할 때는 아래 Step 7의 crf/preset을 그대로 씀) ---
+
 # --- Step 2: 전사 ---
 whisper_model: large-v3             # large-v3 | medium | small
 whisper_device: auto                # auto | cpu | cuda
+whisper_compute_type: auto          # auto | int8 | float16 | default 등 (하드웨어에 맞게 자동)
 language: ko
 
 # --- Step 3: 컷 후보 ---

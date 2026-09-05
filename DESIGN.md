@@ -120,6 +120,30 @@ Whisper 단어 갭만으로 자르면, **Whisper가 놓친 발화가 통째로 �
   다만 화면에서는 `extension` 제외(사진 등)만 개수로 접습니다 — 촬영 폴더에 사진이
   수백 장이면 목록이 파일 목록을 밀어내기 때문입니다. 전체는 sources.json에 그대로 남습니다.
 
+### `work/merge.json` (merge.py 생성)
+
+```json
+{
+  "path": "work/merged.mp4",
+  "single": false,
+  "unify": false,
+  "duration": 1458.2,
+  "width": 1920, "height": 1080, "fps": 30.0,
+  "vcodec": "h264", "acodec": "aac"
+}
+```
+
+- 파일이 1개면 `single: true`이고 `path`는 **원본 절대경로**입니다 (복사하지 않음).
+  이후 단계(전사·컷·렌더)는 이 경로를 그대로 읽기 전용으로 씁니다.
+- `duration/width/height/fps/vcodec/acodec`은 계산값이 아니라 **결과물을 다시 ffprobe로
+  잰 실측값**입니다 (단일 파일이면 이미 알고 있으므로 재probe하지 않고 재사용).
+  스트림 카피·재인코딩 과정에서 합계와 미세하게 달라질 수 있고, 이후 단계의 타임코드
+  검증이 이 값을 기준으로 삼기 때문에 실측이어야 합니다.
+- 이 파일이 있으면 재실행 시 다시 병합하지 않습니다(캐시, transcript.json과 동일 방식).
+  `--remerge`로 강제 재실행.
+- `unify: true`(스펙 통일)면 `merge.py`가 `_concat_reencode`로 첫 클립 해상도·fps에
+  맞춰 재인코딩합니다. `false`면 `_concat_stream_copy`로 재인코딩 없이 이어붙입니다.
+
 ### `work/transcript.json` (transcribe.py 생성)
 
 faster-whisper 출력을 아래 형태로 정규화해서 저장합니다.
@@ -285,7 +309,7 @@ keep마다:  ffmpeg -ss {src_start} -to {src_end} -i work/merged.mp4 \
 | 순서 | 범위 | 확인할 것 |
 |---|---|---|
 | 1 | Step 0~1.5 (`collect.py`, `run.py` 뼈대, `ff.py`) — **구현됨** | 파일이 제대로 걸러지고 촬영시각 순서가 맞는지 |
-| 2 | Step 1.8~2 (`merge.py`, `transcribe.py`) | 병합 타임코드와 전사가 맞는지 |
+| 2 | Step 1.8~2 (`merge.py`, `transcribe.py`) — **구현됨** | 병합 타임코드와 전사가 맞는지 |
 | 3 | Step 3~4 (`cuts.py`, `preview.py`) | 짧은 클립 2~3개로 컷 후보가 말이 되는지 |
 | 4 | Step 5 (`timeline.py`, `subtitles.py`) | 설계는 확정됨. 구현만 하면 됨 |
 | 5 | 캡컷 임포트 테스트 | **타임코드 밀림 여부를 눈으로 확인** |
@@ -297,6 +321,13 @@ keep마다:  ffmpeg -ss {src_start} -to {src_end} -i work/merged.mp4 \
 
 `python test_collect.py` — Step 0~1의 판단(정렬·필터·제외 사유·경로 가드)을 확인합니다.
 ffprobe 없이 돌아가도록 `ff.probe`를 가짜로 바꿔서 돌립니다.
+
+`python test_merge_transcribe.py` — Step 1.8~2의 판단(단일 파일 스킵·스트림 카피
+vs 재인코딩 분기·캐싱·전사 실패 시 폴백)을 확인합니다. `ff.run`/`ff.probe`,
+`faster_whisper` 모듈을 가짜로 바꿔서 ffmpeg·faster-whisper 없이 돌아갑니다.
+`_concat_stream_copy`/`_concat_reencode`가 만드는 실제 ffmpeg 명령어 문법 자체는
+합성 클립에 실물 ffmpeg로 별도 검증했습니다 (동일 스펙 스트림 카피, 해상도가 다른
+두 클립을 첫 클립 기준으로 재인코딩하는 경우 모두 확인).
 
 ---
 

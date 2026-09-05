@@ -125,9 +125,13 @@ def one(path, config):
 
 
 def spec_mismatch(included):
-    """해상도·fps·코덱이 첫 클립과 다른 항목의 인덱스. 그냥 붙이면 깨진다."""
+    """해상도·fps·비디오/오디오 코덱이 첫 클립과 다른 항목의 인덱스.
+
+    스트림 카피로 이어붙일 때 이 중 하나라도 다르면 깨지거나 실패한다.
+    오디오 코덱이 다른 경우(예: aac와 pcm)도 포함한다.
+    """
     if not included:
         return []
-    key = lambda e: (e["width"], e["height"], e["fps"], e["vcodec"])
+    key = lambda e: (e["width"], e["height"], e["fps"], e["vcodec"], e["acodec"])
     first = key(included[0])
     return [i for i, e in enumerate(included) if key(e) != first]

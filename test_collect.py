@@ -136,8 +136,8 @@ def test_date_filter_uses_local_date(tmp, monkey):
 
 
 def test_spec_mismatch():
-    def e(w, h, fps=30.0, codec="h264"):
-        return {"width": w, "height": h, "fps": fps, "vcodec": codec}
+    def e(w, h, fps=30.0, vcodec="h264", acodec="aac"):
+        return {"width": w, "height": h, "fps": fps, "vcodec": vcodec, "acodec": acodec}
 
     check("전부 같으면 없음",
           collect.spec_mismatch([e(1920, 1080), e(1920, 1080)]), [])
@@ -145,6 +145,8 @@ def test_spec_mismatch():
           collect.spec_mismatch([e(1920, 1080), e(3840, 2160)]), [1])
     check("fps 다름",
           collect.spec_mismatch([e(1920, 1080), e(1920, 1080, fps=59.94)]), [1])
+    check("오디오 코덱 다름 (스트림 카피 시 깨질 수 있음)",
+          collect.spec_mismatch([e(1920, 1080), e(1920, 1080, acodec="pcm_s16le")]), [1])
     check("빈 목록", collect.spec_mismatch([]), [])
 
 

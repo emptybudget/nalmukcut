@@ -3,6 +3,9 @@
   python run.py --dir "D:/촬영/2026" --date 2026-02-17 --merge
   python run.py --dir "D:/촬영/2026" --filter "160217*" --merge
   python run.py "D:/촬영/2026/160217_001.mp4"
+
+--merge 없이 --dir 만 쓰면 파일 목록 확인(Step 0~1.5)까지만 하고 멈춘다.
+단일 파일은 합칠 것이 없으므로 --merge 없이도 병합·전사까지 이어서 진행한다.
 """
 
 import argparse
@@ -13,6 +16,9 @@ from pathlib import Path
 import yaml
 
 import collect
+import ff
+import merge
+import transcribe
 
 WORK = Path("work")
 OUTPUT = Path("output")
@@ -182,7 +188,12 @@ def main():
     ap.add_argument("--dir", help="촬영 폴더")
     ap.add_argument("--date", help="촬영일 필터 (YYYY-MM-DD)")
     ap.add_argument("--filter", help="파일명 glob 패턴 (예: '160217*')")
-    ap.add_argument("--merge", action="store_true", help="찾은 파일을 하나로 합침")
+    ap.add_argument("--merge", action="store_true",
+                    help="찾은 파일을 하나로 합치고 이어서 전사까지 진행")
+    ap.add_argument("--remerge", action="store_true",
+                    help="이미 병합된 결과(work/merge.json)가 있어도 다시 병합")
+    ap.add_argument("--retranscribe", action="store_true",
+                    help="이미 전사된 결과(work/transcript.json)가 있어도 다시 전사")
     ap.add_argument("--config", default="config.yaml")
     args = ap.parse_args()
 
@@ -202,20 +213,38 @@ def main():
             raise SystemExit(f"파일이 없습니다: {source}")
         guard_paths(source.parent)
         included, excluded = collect.one(source, config)
+        # 단일 파일은 합칠 것이 없으니 --merge 없이도 바로 다음 단계로 진행한다.
+        proceed = True
     else:
         source = Path(args.dir)
         if not source.is_dir():
             raise SystemExit(f"폴더가 없습니다: {source}")
         guard_paths(source)
         included, excluded = collect.scan(source, config, args.date, args.filter)
+        proceed = args.merge
 
     included, unify = gate(included, excluded, source, args.date)
     path = save_sources(included, excluded, source, args.date, unify)
-
     print(f"\n{len(included)}개 파일 확정 → {path}")
-    if unify:
-        print("병합 시 첫 클립 기준으로 재인코딩합니다.")
-    print("\n다음 단계(병합·전사·컷·자막)는 아직 구현 전입니다.")
+
+    if not proceed:
+        print("\n다음 단계(병합·전사·컷·자막)는 아직 구현 전입니다.")
+        print("병합까지 이어서 하려면 --merge 를 추가하세요.")
+        return
+
+    tools = ff.find_tools(config)
+    info = merge.run(included, WORK, tools, unify, config, force=args.remerge)
+    label = "단일 파일 사용(병합 생략)" if info["single"] else "병합 완료"
+    print(f"\n{label} → {info['path']}  ({hms(info['duration'])}, "
+          f"{info['width']}x{info['height']} {info['fps']:g}fps)")
+
+    transcript = transcribe.run(Path(info["path"]), WORK, config,
+                                force=args.retranscribe)
+    n_words = sum(len(s["words"]) for s in transcript["segments"])
+    print(f"전사 완료: 세그먼트 {len(transcript['segments'])}개, "
+          f"단어 {n_words}개, 총 {hms(transcript['duration'])}")
+
+    print("\n다음 단계(컷 후보·미리보기·자막)는 아직 구현 전입니다.")
 
 
 if __name__ == "__main__":
