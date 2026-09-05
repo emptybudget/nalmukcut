@@ -82,7 +82,9 @@ Whisper 단어 갭만으로 자르면, **Whisper가 놓친 발화가 통째로 �
 ```json
 {
   "dir": "D:/촬영/2026",
+  "date": "2026-02-17",
   "sort": "creation_time",
+  "unify": false,
   "included": [
     {
       "path": "D:/촬영/2026/160217_001.mp4",
@@ -94,18 +96,29 @@ Whisper 단어 갭만으로 자르면, **Whisper가 놓친 발화가 통째로 �
     }
   ],
   "excluded": [
-    {"path": "...", "reason": "too_short",  "detail": "1.2초"},
-    {"path": "...", "reason": "no_audio",   "detail": "오디오 트랙 없음"},
-    {"path": "...", "reason": "extension",  "detail": ".heic"},
-    {"path": "...", "reason": "date_filter","detail": "2026-02-16"}
+    {"path": "...", "reason": "too_short",    "detail": "1.2초"},
+    {"path": "...", "reason": "no_audio",     "detail": "오디오 트랙 없음"},
+    {"path": "...", "reason": "no_video",     "detail": "영상 트랙 없음"},
+    {"path": "...", "reason": "extension",    "detail": ".heic"},
+    {"path": "...", "reason": "name_filter",  "detail": "'160217*' 와 불일치"},
+    {"path": "...", "reason": "probe_failed", "detail": "ffprobe 실패: ..."},
+    {"path": "...", "reason": "date_filter",  "detail": "2026-02-16"},
+    {"path": "...", "reason": "manual",       "detail": "사용자가 제외"}
   ]
 }
 ```
+
+- `unify`는 Step 1.5에서 스펙이 다를 때 사용자가 "첫 클립 기준으로 통일"을 고른 경우 `true`.
+  `merge.py`가 스트림 카피 대신 재인코딩할지 결정하는 데 씁니다.
+- `extension`·`name_filter`·`probe_failed` 항목에는 probe 정보가 없어서
+  게이트에서 되살릴 수 없습니다. 나머지는 되살릴 수 있습니다.
 
 - `time_source`는 `"metadata"`(ffprobe `format_tags=creation_time`) 또는 `"mtime"`(폴백).
   `"mtime"`이 하나라도 있으면 Step 1.5에서 반드시 경고를 띄웁니다.
 - `excluded`는 **버리지 않고 전부 남깁니다.** 제외 사유를 사용자에게 보여줘야 하기 때문입니다
   (기획서 9번 "에러를 조용히 삼키지 않기").
+  다만 화면에서는 `extension` 제외(사진 등)만 개수로 접습니다 — 촬영 폴더에 사진이
+  수백 장이면 목록이 파일 목록을 밀어내기 때문입니다. 전체는 sources.json에 그대로 남습니다.
 
 ### `work/transcript.json` (transcribe.py 생성)
 
@@ -271,12 +284,19 @@ keep마다:  ffmpeg -ss {src_start} -to {src_end} -i work/merged.mp4 \
 
 | 순서 | 범위 | 확인할 것 |
 |---|---|---|
-| 1 | Step 0~1.5 (`collect.py`, `run.py` 뼈대, `ff.py`) | 파일이 제대로 걸러지고 촬영시각 순서가 맞는지 |
+| 1 | Step 0~1.5 (`collect.py`, `run.py` 뼈대, `ff.py`) — **구현됨** | 파일이 제대로 걸러지고 촬영시각 순서가 맞는지 |
 | 2 | Step 1.8~2 (`merge.py`, `transcribe.py`) | 병합 타임코드와 전사가 맞는지 |
 | 3 | Step 3~4 (`cuts.py`, `preview.py`) | 짧은 클립 2~3개로 컷 후보가 말이 되는지 |
 | 4 | Step 5 (`timeline.py`, `subtitles.py`) | 설계는 확정됨. 구현만 하면 됨 |
 | 5 | 캡컷 임포트 테스트 | **타임코드 밀림 여부를 눈으로 확인** |
 | 6 | Step 6~7 (`render.py`, 검수 게이트) | 검증 4종이 실제로 잡아내는지 |
+
+---
+
+## 검증
+
+`python test_collect.py` — Step 0~1의 판단(정렬·필터·제외 사유·경로 가드)을 확인합니다.
+ffprobe 없이 돌아가도록 `ff.probe`를 가짜로 바꿔서 돌립니다.
 
 ---
 
